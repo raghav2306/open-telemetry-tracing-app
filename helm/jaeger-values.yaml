@@ -1,0 +1,72 @@
+# Helm values for the official Jaeger chart (jaegertracing/jaeger 4.x = Jaeger v2),
+# tuned for a small minikube lab cluster.
+#
+#   helm repo add jaegertracing https://jaegertracing.github.io/helm-charts
+#   helm repo update
+#   helm upgrade --install jaeger jaegertracing/jaeger --version 4.16.1 \
+#     --namespace tracing --create-namespace -f helm/jaeger-values.yaml
+#
+# The release name "jaeger" creates a Service called "jaeger" (ports 4317, 4318, 16686),
+# which is exactly what the app's ConfigMap (k8s/app/configmap.yaml) points to.
+# See docs/02-install-jaeger-with-helm.md for the full walkthrough.
+
+jaeger:
+  replicas: 1   # in-memory storage => keep a single replica
+
+  # Small footprint for minikube (default chart sets no limits at all).
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 384Mi
+
+  # OPTIONAL: expose the UI through the minikube ingress addon instead of port-forward.
+  # Needs: minikube addons enable ingress   and   minikube tunnel (macOS/Windows, docker driver)
+  ingress:
+    enabled: false
+    ingressClassName: nginx
+    pathType: Prefix
+    hosts:
+      - jaeger.127.0.0.1.nip.io
+
+# Jaeger v2 is built on the OpenTelemetry Collector, so it is configured with a
+# collector-style config: receivers -> processors -> exporters, plus extensions.
+# This replaces the image's built-in config.
+userconfig:
+  service:
+    extensions: [jaeger_storage, jaeger_query, healthcheckv2]
+    pipelines:
+      traces:
+        receivers: [otlp]                    # accept spans over OTLP
+        processors: [batch]                  # batch them for efficiency
+        exporters: [jaeger_storage_exporter] # write them to the storage below
+
+  extensions:
+    healthcheckv2:                           # used by the chart's probes (GET :13133/status)
+      use_v2: true
+      http:
+        endpoint: 0.0.0.0:13133
+    jaeger_query:                            # the UI + query API on :16686
+      storage:
+        traces: memstore
+    jaeger_storage:
+      backends:
+        memstore:
+          memory:
+            max_traces: 5000                 # cap memory use; oldest traces are dropped
+
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318             # our Node.js services export here
+
+  processors:
+    batch: {}
+
+  exporters:
+    jaeger_storage_exporter:
+      trace_storage: memstore

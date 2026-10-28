@@ -1,0 +1,24 @@
+{
+  "name": "jaeger-tracing-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Node.js microservices demo for distributed tracing with OpenTelemetry + Jaeger (lab practical)",
+  "scripts": {
+    "gateway": "OTEL_SERVICE_NAME=api-gateway node --require ./src/tracing.js src/services/api-gateway.js",
+    "order": "OTEL_SERVICE_NAME=order-service node --require ./src/tracing.js src/services/order-service.js",
+    "inventory": "OTEL_SERVICE_NAME=inventory-service node --require ./src/tracing.js src/services/inventory-service.js",
+    "payment": "OTEL_SERVICE_NAME=payment-service node --require ./src/tracing.js src/services/payment-service.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.10.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.82.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.300.0",
+    "@opentelemetry/resources": "^3.0.0",
+    "@opentelemetry/sdk-node": "^0.300.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
+    "express": "^5.3.0"
+  }
+}

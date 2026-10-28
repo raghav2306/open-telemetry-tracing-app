@@ -1,0 +1,11 @@
+# The demo application only (no Jaeger). Use this when Jaeger is installed with Helm:
+#   kubectl apply -k k8s/app
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - api-gateway.yaml
+  - order-service.yaml
+  - inventory-service.yaml
+  - payment-service.yaml

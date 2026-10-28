@@ -1,0 +1,57 @@
+# docker compose up --build -d
+#   App:    http://localhost:3000   (api-gateway)
+#   Jaeger: http://localhost:16686  (UI)
+x-service: &service
+  build: .
+  image: jaeger-demo:1.0
+  restart: unless-stopped
+  depends_on: [jaeger]
+  mem_limit: 128m
+
+x-otel-env: &otel-env
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318   # Jaeger's OTLP/HTTP receiver
+  DEPLOY_ENV: docker-compose
+
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.76.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"   # on by default in recent versions; explicit for the lab
+      MEMORY_MAX_TRACES: "10000"       # in-memory storage: keep the newest 10k traces
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC (unused here, handy for other apps)
+      - "4318:4318"     # OTLP HTTP (what our services use)
+    mem_limit: 512m
+
+  api-gateway:
+    <<: *service
+    environment:
+      <<: *otel-env
+      SERVICE: api-gateway
+      OTEL_SERVICE_NAME: api-gateway
+      ORDER_SERVICE_URL: http://order-service:3001
+    ports: ["3000:3000"]
+
+  order-service:
+    <<: *service
+    environment:
+      <<: *otel-env
+      SERVICE: order-service
+      OTEL_SERVICE_NAME: order-service
+      INVENTORY_SERVICE_URL: http://inventory-service:3002
+      PAYMENT_SERVICE_URL: http://payment-service:3003
+
+  inventory-service:
+    <<: *service
+    environment:
+      <<: *otel-env
+      SERVICE: inventory-service
+      OTEL_SERVICE_NAME: inventory-service
+
+  payment-service:
+    <<: *service
+    environment:
+      <<: *otel-env
+      SERVICE: payment-service
+      OTEL_SERVICE_NAME: payment-service

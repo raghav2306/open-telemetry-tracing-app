@@ -1,0 +1,35 @@
+# OPTIONAL: reach the app and the Jaeger UI through the minikube ingress addon
+# instead of port-forwarding.
+#   minikube addons enable ingress
+#   kubectl apply -f k8s/extras/ingress.yaml
+#   minikube tunnel          # macOS/Windows with the docker driver; keep it running
+# Then open http://jaeger.127.0.0.1.nip.io and http://shop.127.0.0.1.nip.io
+# (nip.io resolves *.127.0.0.1.nip.io to 127.0.0.1; on Linux use $(minikube ip).nip.io hosts instead)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tracing-demo
+  namespace: tracing
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: jaeger.127.0.0.1.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jaeger
+                port:
+                  number: 16686
+    - host: shop.127.0.0.1.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 3000

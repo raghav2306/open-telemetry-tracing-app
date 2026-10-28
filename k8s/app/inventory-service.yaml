@@ -1,0 +1,84 @@
+# inventory-service — Stock checks/reservations; RARE-* SKUs trigger the slow warehouse lookup
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-service
+  namespace: tracing
+  labels:
+    app: inventory-service
+    app.kubernetes.io/name: inventory-service
+    app.kubernetes.io/part-of: jaeger-tracing-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory-service
+  template:
+    metadata:
+      labels:
+        app: inventory-service
+        app.kubernetes.io/name: inventory-service
+        app.kubernetes.io/part-of: jaeger-tracing-demo
+    spec:
+      terminationGracePeriodSeconds: 10   # time for the OTel SDK to flush spans on SIGTERM
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000                    # the "node" user of the node:22-alpine image
+      containers:
+        - name: inventory-service
+          image: jaeger-demo:1.0           # built inside minikube: minikube image build -t jaeger-demo:1.0 .
+          imagePullPolicy: IfNotPresent    # never try to pull from Docker Hub
+          envFrom:
+            - configMapRef:
+                name: otel-config
+          env:
+            - name: SERVICE                # which file in src/services/ to run
+              value: "inventory-service"
+            - name: OTEL_SERVICE_NAME      # name shown in Jaeger
+              value: "inventory-service"
+            - name: PORT
+              value: "3002"
+            - name: K8S_POD_NAME           # handy when you add it as a span attribute
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - name: http
+              containerPort: 3002
+          readinessProbe:                  # /health is excluded from tracing (see src/tracing.js)
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 20m
+              memory: 48Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-service
+  namespace: tracing
+  labels:
+    app: inventory-service
+spec:
+  type: ClusterIP
+  selector:
+    app: inventory-service
+  ports:
+    - name: http
+      port: 3002
+      targetPort: http

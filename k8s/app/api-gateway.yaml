@@ -1,0 +1,86 @@
+# api-gateway — Public entry point: auth + validation middlewares, forwards to order-service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: tracing
+  labels:
+    app: api-gateway
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: jaeger-tracing-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        app.kubernetes.io/name: api-gateway
+        app.kubernetes.io/part-of: jaeger-tracing-demo
+    spec:
+      terminationGracePeriodSeconds: 10   # time for the OTel SDK to flush spans on SIGTERM
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000                    # the "node" user of the node:22-alpine image
+      containers:
+        - name: api-gateway
+          image: jaeger-demo:1.0           # built inside minikube: minikube image build -t jaeger-demo:1.0 .
+          imagePullPolicy: IfNotPresent    # never try to pull from Docker Hub
+          envFrom:
+            - configMapRef:
+                name: otel-config
+          env:
+            - name: SERVICE                # which file in src/services/ to run
+              value: "api-gateway"
+            - name: OTEL_SERVICE_NAME      # name shown in Jaeger
+              value: "api-gateway"
+            - name: PORT
+              value: "3000"
+            - name: K8S_POD_NAME           # handy when you add it as a span attribute
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - name: http
+              containerPort: 3000
+          readinessProbe:                  # /health is excluded from tracing (see src/tracing.js)
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 20m
+              memory: 48Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: tracing
+  labels:
+    app: api-gateway
+spec:
+  # NodePort so you can reach it with `minikube service api-gateway -n tracing --url`
+  type: NodePort
+  selector:
+    app: api-gateway
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      nodePort: 30080

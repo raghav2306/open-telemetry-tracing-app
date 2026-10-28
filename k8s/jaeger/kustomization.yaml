@@ -1,0 +1,6 @@
+# Jaeger all-in-one without Helm:  kubectl apply -k k8s/jaeger
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - jaeger-all-in-one.yaml

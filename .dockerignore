@@ -1,0 +1,7 @@
+node_modules
+k8s
+scripts
+*.md
+.git
+docs
+helm

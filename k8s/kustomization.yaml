@@ -1,0 +1,8 @@
+# Everything WITHOUT Helm (app + Jaeger all-in-one manifest):
+#   kubectl apply -k k8s/
+# If you install Jaeger with Helm instead, apply only the app:  kubectl apply -k k8s/app
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - app
+  - jaeger/jaeger-all-in-one.yaml

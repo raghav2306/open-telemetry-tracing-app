@@ -1,0 +1,32 @@
+# OPTIONAL: generate traffic from INSIDE the cluster (no port-forward needed).
+#   kubectl apply -f k8s/extras/load-generator-job.yaml
+#   kubectl -n tracing logs -f job/load-generator
+#   kubectl -n tracing delete job load-generator     # before running it again
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: load-generator
+  namespace: tracing
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: curl
+          image: curlimages/curl:8.11.1
+          command: ["sh", "-c"]
+          args:
+            - |
+              URL=http://api-gateway.tracing.svc.cluster.local:3000
+              for i in $(seq 1 40); do
+                case $((i % 8)) in
+                  0) s=slow ;; 1) s=error ;; 2) s=declined ;; 3) s=invalid ;; *) s=happy ;;
+                esac
+                code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer demo-token' "$URL/api/demo/$s")
+                echo "$i $s -> $code"
+              done
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { memory: 32Mi }

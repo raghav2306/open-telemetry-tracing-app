@@ -1,0 +1,15 @@
+# Settings shared by all four services (loaded with envFrom).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-config
+  namespace: tracing
+data:
+  # Jaeger's OTLP/HTTP receiver. The Service is called "jaeger" whether you
+  # installed Jaeger with k8s/jaeger (plain manifest) or with Helm (release "jaeger").
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger.tracing.svc.cluster.local:4318"
+  DEPLOY_ENV: "minikube"
+  # Downstream service URLs (Kubernetes DNS: <service>.<namespace>.svc.cluster.local)
+  ORDER_SERVICE_URL: "http://order-service.tracing.svc.cluster.local:3001"
+  INVENTORY_SERVICE_URL: "http://inventory-service.tracing.svc.cluster.local:3002"
+  PAYMENT_SERVICE_URL: "http://payment-service.tracing.svc.cluster.local:3003"

@@ -1,0 +1,61 @@
+# Jaeger all-in-one as a plain manifest (alternative to the Helm chart).
+# Collector (OTLP 4317/4318) + query/UI (16686) + in-memory storage, in ONE pod.
+# Traces are lost when the pod restarts — fine for a lab, not for production.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: tracing
+  labels:
+    app: jaeger
+    app.kubernetes.io/name: jaeger
+spec:
+  replicas: 1   # in-memory storage => must stay at 1
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+        app.kubernetes.io/name: jaeger
+    spec:
+      containers:
+        - name: jaeger
+          image: jaegertracing/all-in-one:1.76.0
+          env:
+            - name: COLLECTOR_OTLP_ENABLED
+              value: "true"
+            - name: MEMORY_MAX_TRACES      # cap memory use on minikube
+              value: "5000"
+          ports:
+            - { name: ui, containerPort: 16686 }
+            - { name: otlp-grpc, containerPort: 4317 }
+            - { name: otlp-http, containerPort: 4318 }
+            - { name: admin, containerPort: 14269 }
+          readinessProbe:
+            httpGet: { path: /, port: admin }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: admin }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 384Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger           # same name the Helm chart uses, so the app config works with both
+  namespace: tracing
+  labels:
+    app: jaeger
+spec:
+  selector:
+    app: jaeger
+  ports:
+    - { name: http-query, port: 16686, targetPort: ui }
+    - { name: grpc-otlp, port: 4317, targetPort: otlp-grpc }
+    - { name: http-otlp, port: 4318, targetPort: otlp-http }
