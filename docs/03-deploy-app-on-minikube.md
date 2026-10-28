@@ -86,6 +86,10 @@ Every service prints `[tracing] OpenTelemetry started for "<name>" -> http://jae
 
 ## 3.3 Reach the app and the Jaeger UI
 
+> If the docker compose version is also running, it already owns ports 3000 and 16686, and your curl
+> requests go to compose instead of minikube. Stop it first with `docker compose down`
+> (or port-forward to other local ports, e.g. `8080:3000`).
+
 Port-forward (works everywhere; keep both terminals open):
 
 ```bash
